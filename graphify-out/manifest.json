@@ -1,0 +1,218 @@
+{
+  "app/build.gradle.kts": {
+    "mtime": 1792340977.6302743,
+    "seen": 1792404022.7038164,
+    "ast_hash": "cd7a55ee35ed217f4514107fade0ba4c",
+    "semantic_hash": "cd7a55ee35ed217f4514107fade0ba4c"
+  },
+  "app/src/androidTest/java/com/example/wavora/ui/main/MainScreenTest.kt": {
+    "mtime": 1792339871.3701735,
+    "seen": 1792404022.7038164,
+    "ast_hash": "385f6cdee292b15a0c060bcb5a7f81eb",
+    "semantic_hash": "385f6cdee292b15a0c060bcb5a7f81eb"
+  },
+  "app/src/main/java/com/example/wavora/MainActivity.kt": {
+    "mtime": 1792346633.2342112,
+    "seen": 1792404022.7038164,
+    "ast_hash": "2807e3e36a4da8ca5ee9a89f9394b8ca",
+    "semantic_hash": "2807e3e36a4da8ca5ee9a89f9394b8ca"
+  },
+  "app/src/main/java/com/example/wavora/MediaViewModel.kt": {
+    "mtime": 1792584288.461251,
+    "seen": 1792584499.8470883,
+    "ast_hash": "4f5ad91a3f671a1a0467d6183156feed",
+    "semantic_hash": ""
+  },
+  "app/src/main/java/com/example/wavora/Navigation.kt": {
+    "mtime": 1792582678.1781328,
+    "seen": 1792583656.598513,
+    "ast_hash": "0e497116bbb4d482420c850303303d9c",
+    "semantic_hash": ""
+  },
+  "app/src/main/java/com/example/wavora/data/MediaRepository.kt": {
+    "mtime": 1792583408.4604366,
+    "seen": 1792583656.598513,
+    "ast_hash": "a450281ee8e5b650043bce9976d33cb2",
+    "semantic_hash": ""
+  },
+  "app/src/main/java/com/example/wavora/data/Models.kt": {
+    "mtime": 1792581541.2589116,
+    "seen": 1792583656.598513,
+    "ast_hash": "4217d65de58255893434316b5cb42869",
+    "semantic_hash": ""
+  },
+  "app/src/main/java/com/example/wavora/player/AudioFxManager.kt": {
+    "mtime": 1792346008.485055,
+    "seen": 1792404022.7038164,
+    "ast_hash": "e3d4e13592ac5e0e469d9de09a7b3526",
+    "semantic_hash": "e3d4e13592ac5e0e469d9de09a7b3526"
+  },
+  "app/src/main/java/com/example/wavora/player/WavoraPlaybackService.kt": {
+    "mtime": 1792350374.7775016,
+    "seen": 1792404022.7038164,
+    "ast_hash": "9632caa0ea37cc4a6c33f46186c8e33c",
+    "semantic_hash": "9632caa0ea37cc4a6c33f46186c8e33c"
+  },
+  "app/src/main/java/com/example/wavora/player/WavoraPlayerController.kt": {
+    "mtime": 1792345759.4249108,
+    "seen": 1792404022.7038164,
+    "ast_hash": "914570a7811ba27cc4034f66723bce56",
+    "semantic_hash": "914570a7811ba27cc4034f66723bce56"
+  },
+  "app/src/main/java/com/example/wavora/theme/Color.kt": {
+    "mtime": 1792580787.0081296,
+    "seen": 1792583656.598513,
+    "ast_hash": "e731d955d58834179007a64ff9019daf",
+    "semantic_hash": ""
+  },
+  "app/src/main/java/com/example/wavora/theme/Theme.kt": {
+    "mtime": 1792404870.3373299,
+    "seen": 1792579996.875786,
+    "ast_hash": "ab03e76d39268028fcb572d9fc41ca07",
+    "semantic_hash": "ab03e76d39268028fcb572d9fc41ca07"
+  },
+  "app/src/main/java/com/example/wavora/theme/Type.kt": {
+    "mtime": 1792580771.370662,
+    "seen": 1792583656.598513,
+    "ast_hash": "7fbf726b19139fbfd645bb79ce83afcb",
+    "semantic_hash": ""
+  },
+  "app/src/main/java/com/example/wavora/ui/DetailsScreens.kt": {
+    "mtime": 1792405283.834037,
+    "seen": 1792579996.875786,
+    "ast_hash": "5014f589c57478a503e03025dea8fb92",
+    "semantic_hash": "5014f589c57478a503e03025dea8fb92"
+  },
+  "app/src/main/java/com/example/wavora/ui/EqualizerScreen.kt": {
+    "mtime": 1792584156.2273998,
+    "seen": 1792584499.8470883,
+    "ast_hash": "3820cfd2d09e29c70e67637e92d003a7",
+    "semantic_hash": ""
+  },
+  "app/src/main/java/com/example/wavora/ui/HomeScreen.kt": {
+    "mtime": 1792584489.434863,
+    "seen": 1792584499.8470883,
+    "ast_hash": "726361c2c119ae65f15fd9cc33558f04",
+    "semantic_hash": ""
+  },
+  "app/src/main/java/com/example/wavora/ui/PermissionScreen.kt": {
+    "mtime": 1792350339.7750902,
+    "seen": 1792404022.7038164,
+    "ast_hash": "393092536f00b73e8ea30afc6b176798",
+    "semantic_hash": "393092536f00b73e8ea30afc6b176798"
+  },
+  "app/src/main/java/com/example/wavora/ui/PlayerScreen.kt": {
+    "mtime": 1792583665.8681262,
+    "seen": 1792584499.8470883,
+    "ast_hash": "503cca04b3b5c6f65633d304f4992319",
+    "semantic_hash": ""
+  },
+  "app/src/main/java/com/example/wavora/ui/SettingsScreen.kt": {
+    "mtime": 1792405352.793409,
+    "seen": 1792579996.8762944,
+    "ast_hash": "eb9ad4102154ff54dfc78abdf2f8d8f9",
+    "semantic_hash": "eb9ad4102154ff54dfc78abdf2f8d8f9"
+  },
+  "app/src/main/java/com/example/wavora/ui/SharedComponents.kt": {
+    "mtime": 1792584183.0398147,
+    "seen": 1792584499.8470883,
+    "ast_hash": "2d01ea01d64feccf7eae393943f1b4e7",
+    "semantic_hash": ""
+  },
+  "app/src/main/java/com/example/wavora/ui/VideoPlayerScreen.kt": {
+    "mtime": 1792405383.7541366,
+    "seen": 1792579996.8762944,
+    "ast_hash": "9956b207bbeef83e0fe6045f766b7843",
+    "semantic_hash": "9956b207bbeef83e0fe6045f766b7843"
+  },
+  "app/src/test/java/com/example/wavora/ui/main/MainScreenViewModelTest.kt": {
+    "mtime": 1792339871.41002,
+    "seen": 1792404022.7038164,
+    "ast_hash": "09932cca5cff5e2d87f7d3b9bfec73de",
+    "semantic_hash": "09932cca5cff5e2d87f7d3b9bfec73de"
+  },
+  "build.gradle.kts": {
+    "mtime": 1792339871.3557827,
+    "seen": 1792404022.7038164,
+    "ast_hash": "aa88c6c665b41d3ab89c3cd8b0c7d128",
+    "semantic_hash": "aa88c6c665b41d3ab89c3cd8b0c7d128"
+  },
+  "gradlew": {
+    "mtime": 1792339871.3590322,
+    "seen": 1792404022.7038164,
+    "ast_hash": "857faf4b42fc9e324fb40b7223f2a94a",
+    "semantic_hash": "857faf4b42fc9e324fb40b7223f2a94a"
+  },
+  "settings.gradle.kts": {
+    "mtime": 1792339871.362507,
+    "seen": 1792404022.7038164,
+    "ast_hash": "1cc5ba733600c4c9a7bcc16aef28e3ff",
+    "semantic_hash": "1cc5ba733600c4c9a7bcc16aef28e3ff"
+  },
+  "app/src/main/res/mipmap-hdpi/ic_launcher.webp": {
+    "mtime": 1792339871.39074,
+    "seen": 1792405637.5653174,
+    "ast_hash": "39d9bb21eb48f128a71c3f01ad3cd427",
+    "semantic_hash": ""
+  },
+  "app/src/main/res/mipmap-hdpi/ic_launcher_round.webp": {
+    "mtime": 1792339871.3918755,
+    "seen": 1792405637.5653174,
+    "ast_hash": "70d6f58af3c76ee221c829b1ce9daa04",
+    "semantic_hash": ""
+  },
+  "app/src/main/res/mipmap-mdpi/ic_launcher.webp": {
+    "mtime": 1792339871.3927863,
+    "seen": 1792405637.5653174,
+    "ast_hash": "d2acce71c7b46e5e9540d23a9f7b2166",
+    "semantic_hash": ""
+  },
+  "app/src/main/res/mipmap-mdpi/ic_launcher_round.webp": {
+    "mtime": 1792339871.3942971,
+    "seen": 1792405637.5653174,
+    "ast_hash": "6376acb48f96a855ee95c113cd7fd616",
+    "semantic_hash": ""
+  },
+  "app/src/main/res/mipmap-xhdpi/ic_launcher.webp": {
+    "mtime": 1792339871.3958042,
+    "seen": 1792405637.5653174,
+    "ast_hash": "bd087d80b70bec05a43c745f29dc3ffc",
+    "semantic_hash": ""
+  },
+  "app/src/main/res/mipmap-xhdpi/ic_launcher_round.webp": {
+    "mtime": 1792339871.3968005,
+    "seen": 1792405637.5653174,
+    "ast_hash": "7479edd56ab712609f030054bffd7263",
+    "semantic_hash": ""
+  },
+  "app/src/main/res/mipmap-xxhdpi/ic_launcher.webp": {
+    "mtime": 1792339871.3977926,
+    "seen": 1792405637.5653174,
+    "ast_hash": "ea180e8d1a2e8300cc998b987266b736",
+    "semantic_hash": ""
+  },
+  "app/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp": {
+    "mtime": 1792339871.3987978,
+    "seen": 1792405637.5653174,
+    "ast_hash": "947842742b29eeda80ee0805e1600366",
+    "semantic_hash": ""
+  },
+  "app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp": {
+    "mtime": 1792339871.4003084,
+    "seen": 1792405637.5653174,
+    "ast_hash": "54ab624970c86c2146e76b93f27586f7",
+    "semantic_hash": ""
+  },
+  "app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp": {
+    "mtime": 1792339871.4013004,
+    "seen": 1792405637.5653174,
+    "ast_hash": "9ee591be72fb336861a8044086054daa",
+    "semantic_hash": ""
+  },
+  ".agents/skills/frontend-design/SKILL.md": {
+    "mtime": 1792580363.3838193,
+    "seen": 1792583656.5996883,
+    "ast_hash": "7d6df6b2e98e38f8b86046325dc6afd0",
+    "semantic_hash": ""
+  }
+}
