@@ -30,11 +30,17 @@ data class MediaUiState(
     val mostPlayed: List<MediaItem> = emptyList(),
     val recentlyPlayed: List<MediaItem> = emptyList(),
     val searchQuery: String = "",
+    val searchCategory: SearchCategory = SearchCategory.ALL,
+    val recentSearches: List<String> = emptyList(),
     val librarySubCategory: String = "MENU",
     val activeNavTab: Int = 0,
     val isFoldersDialogVisible: Boolean = false,
     val discoveredFolders: List<SelectableFolder> = emptyList(),
     val selectedSongForOptions: MediaItem? = null,
+    val customization: AppCustomization = AppCustomization(),
+    val isSortSheetVisible: Boolean = false,
+    val isCustomizationSheetVisible: Boolean = false,
+    val selectedMainVideo: MediaItem? = null,
 )
 
 class MediaViewModel(application: Application) : AndroidViewModel(application) {
@@ -43,15 +49,42 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
     val playerController = WavoraPlayerController(application)
     val playerState: StateFlow<PlayerState> = playerController.state
 
-    private val _uiState = MutableStateFlow(MediaUiState())
+    private val userDataPrefs by lazy {
+        getApplication<Application>().getSharedPreferences("wavora_user_data", Context.MODE_PRIVATE)
+    }
+
+    private fun loadSavedCustomization(): AppCustomization {
+        val accent = userDataPrefs.getInt("accent_index", 0)
+        val bg = userDataPrefs.getInt("bg_index", 0)
+        val viewModeName = userDataPrefs.getString("view_mode", ViewMode.LIST.name) ?: ViewMode.LIST.name
+        val sortOptionName = userDataPrefs.getString("sort_option", SortOption.TITLE.name) ?: SortOption.TITLE.name
+        val sortAsc = userDataPrefs.getBoolean("sort_asc", true)
+        val viewMode = try { ViewMode.valueOf(viewModeName) } catch (_: Exception) { ViewMode.LIST }
+        val sortOption = try { SortOption.valueOf(sortOptionName) } catch (_: Exception) { SortOption.TITLE }
+        return AppCustomization(
+            accentColorIndex = accent,
+            bgThemeIndex = bg,
+            viewMode = viewMode,
+            sortBy = sortOption,
+            sortAscending = sortAsc,
+        )
+    }
+
+    private fun getSavedRecentSearches(): List<String> {
+        val raw = userDataPrefs.getString("recent_searches", "") ?: ""
+        return if (raw.isBlank()) listOf("Bunny", "Synthwave", "Ambient", "Cinema") else raw.split("|||")
+    }
+
+    private val _uiState = MutableStateFlow(
+        MediaUiState(
+            customization = loadSavedCustomization(),
+            recentSearches = getSavedRecentSearches()
+        )
+    )
     val uiState: StateFlow<MediaUiState> = _uiState.asStateFlow()
 
     private val _equalizerState = MutableStateFlow(loadSavedEqSettings())
     val equalizerState: StateFlow<EqualizerState> = _equalizerState.asStateFlow()
-
-    private val userDataPrefs by lazy {
-        getApplication<Application>().getSharedPreferences("wavora_user_data", Context.MODE_PRIVATE)
-    }
 
     private fun getPlayCount(id: Long): Int = userDataPrefs.getInt("count_$id", 0)
     private fun getLastPlayed(id: Long): Long = userDataPrefs.getLong("last_$id", 0L)
@@ -145,6 +178,7 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
                 )
             } else emptyList()
 
+            val firstVideo = video.firstOrNull() ?: SampleMedia.sampleVideos.firstOrNull()
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 audioItems = audio,
@@ -157,8 +191,121 @@ class MediaViewModel(application: Application) : AndroidViewModel(application) {
                 mostPlayed = mostPlayed,
                 recentlyPlayed = recentlyPlayed,
                 playlists = playlists,
+                selectedMainVideo = _uiState.value.selectedMainVideo ?: firstVideo,
             )
         }
+    }
+
+    fun setSelectedMainVideo(item: MediaItem) {
+        _uiState.value = _uiState.value.copy(selectedMainVideo = item)
+    }
+
+    fun openSortSheet() {
+        _uiState.value = _uiState.value.copy(isSortSheetVisible = true)
+    }
+
+    fun closeSortSheet() {
+        _uiState.value = _uiState.value.copy(isSortSheetVisible = false)
+    }
+
+    fun openCustomizationSheet() {
+        _uiState.value = _uiState.value.copy(isCustomizationSheetVisible = true)
+    }
+
+    fun closeCustomizationSheet() {
+        _uiState.value = _uiState.value.copy(isCustomizationSheetVisible = false)
+    }
+
+    fun setAccentColorIndex(index: Int) {
+        userDataPrefs.edit().putInt("accent_index", index).apply()
+        val updated = _uiState.value.customization.copy(accentColorIndex = index)
+        _uiState.value = _uiState.value.copy(customization = updated)
+    }
+
+    fun setBgThemeIndex(index: Int) {
+        userDataPrefs.edit().putInt("bg_index", index).apply()
+        val updated = _uiState.value.customization.copy(bgThemeIndex = index)
+        _uiState.value = _uiState.value.copy(customization = updated)
+    }
+
+    fun setViewMode(mode: ViewMode) {
+        userDataPrefs.edit().putString("view_mode", mode.name).apply()
+        val updated = _uiState.value.customization.copy(viewMode = mode)
+        _uiState.value = _uiState.value.copy(customization = updated)
+    }
+
+    fun setSortOption(option: SortOption) {
+        userDataPrefs.edit().putString("sort_option", option.name).apply()
+        val updated = _uiState.value.customization.copy(sortBy = option)
+        _uiState.value = _uiState.value.copy(customization = updated)
+    }
+
+    fun toggleSortDirection() {
+        val newAsc = !_uiState.value.customization.sortAscending
+        userDataPrefs.edit().putBoolean("sort_asc", newAsc).apply()
+        val updated = _uiState.value.customization.copy(sortAscending = newAsc)
+        _uiState.value = _uiState.value.copy(customization = updated)
+    }
+
+    fun setMediaFilter(filter: MediaFilter) {
+        val updated = _uiState.value.customization.copy(filter = filter)
+        _uiState.value = _uiState.value.copy(customization = updated)
+    }
+
+    fun setSearchCategory(category: SearchCategory) {
+        _uiState.value = _uiState.value.copy(searchCategory = category)
+    }
+
+    fun addRecentSearch(query: String) {
+        if (query.isBlank()) return
+        val current = _uiState.value.recentSearches.toMutableList()
+        current.remove(query)
+        current.add(0, query)
+        val limited = current.take(8)
+        userDataPrefs.edit().putString("recent_searches", limited.joinToString("|||")).apply()
+        _uiState.value = _uiState.value.copy(recentSearches = limited)
+    }
+
+    fun clearRecentSearches() {
+        userDataPrefs.edit().remove("recent_searches").apply()
+        _uiState.value = _uiState.value.copy(recentSearches = emptyList())
+    }
+
+    fun getFilteredAndSortedAudio(): List<MediaItem> {
+        val state = _uiState.value
+        val items = when (state.customization.filter) {
+            MediaFilter.ALL -> state.audioItems
+            MediaFilter.SONGS -> state.audioItems
+            MediaFilter.VIDEOS -> emptyList()
+            MediaFilter.FAVORITES -> state.bookmarks
+            MediaFilter.RECENT -> if (state.recentlyPlayed.isNotEmpty()) state.recentlyPlayed else state.audioItems
+            MediaFilter.MOST_PLAYED -> if (state.mostPlayed.isNotEmpty()) state.mostPlayed else state.audioItems
+        }
+
+        val sorted = when (state.customization.sortBy) {
+            SortOption.TITLE -> items.sortedBy { it.title.lowercase() }
+            SortOption.DATE_ADDED -> items.sortedByDescending { it.dateAdded }
+            SortOption.DURATION -> items.sortedByDescending { it.duration }
+            SortOption.ARTIST -> items.sortedBy { it.artist.lowercase() }
+            SortOption.ALBUM -> items.sortedBy { it.album.lowercase() }
+            SortOption.MOST_PLAYED -> items.sortedByDescending { it.playCount }
+        }
+
+        return if (state.customization.sortAscending) sorted else sorted.reversed()
+    }
+
+    fun getFilteredAndSortedVideos(): List<MediaItem> {
+        val state = _uiState.value
+        val items = state.videoItems.ifEmpty { SampleMedia.sampleVideos }
+        val sorted = when (state.customization.sortBy) {
+            SortOption.TITLE -> items.sortedBy { it.title.lowercase() }
+            SortOption.DATE_ADDED -> items.sortedByDescending { it.dateAdded }
+            SortOption.DURATION -> items.sortedByDescending { it.duration }
+            SortOption.ARTIST -> items.sortedBy { it.artist.lowercase() }
+            SortOption.ALBUM -> items.sortedBy { it.album.lowercase() }
+            SortOption.MOST_PLAYED -> items.sortedByDescending { it.playCount }
+        }
+        return if (state.customization.sortAscending) sorted else sorted.reversed()
     }
 
     fun onPermissionGranted() {

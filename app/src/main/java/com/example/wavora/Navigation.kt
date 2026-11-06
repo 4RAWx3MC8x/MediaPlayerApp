@@ -19,8 +19,7 @@ enum class Screen {
 }
 
 @Composable
-fun MainNavigation() {
-    val viewModel: MediaViewModel = viewModel()
+fun MainNavigation(viewModel: MediaViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
 
     var currentScreen by remember { mutableStateOf(Screen.HOME) }

@@ -115,3 +115,46 @@ fun Long.formatDuration(): String {
         "%d:%02d".format(m, s)
     }
 }
+
+enum class ViewMode {
+    LIST, GRID, COMPACT
+}
+
+enum class SortOption(val label: String) {
+    TITLE("Title"),
+    DATE_ADDED("Date Added"),
+    DURATION("Duration"),
+    ARTIST("Artist"),
+    ALBUM("Album"),
+    MOST_PLAYED("Most Played")
+}
+
+enum class MediaFilter(val label: String) {
+    ALL("All"),
+    SONGS("Songs"),
+    VIDEOS("Videos"),
+    FAVORITES("Favorites"),
+    RECENT("Recent"),
+    MOST_PLAYED("Most Played")
+}
+
+enum class SearchCategory(val label: String) {
+    ALL("All"),
+    SONGS("Songs"),
+    VIDEOS("Videos"),
+    ARTISTS("Artists"),
+    ALBUMS("Albums"),
+    FOLDERS("Folders")
+}
+
+data class AppCustomization(
+    val accentColorIndex: Int = 0,
+    val bgThemeIndex: Int = 0,
+    val viewMode: ViewMode = ViewMode.LIST,
+    val sortBy: SortOption = SortOption.TITLE,
+    val sortAscending: Boolean = true,
+    val filter: MediaFilter = MediaFilter.ALL,
+    val autoPlayNext: Boolean = true,
+    val showHighResBadges: Boolean = true,
+)
+

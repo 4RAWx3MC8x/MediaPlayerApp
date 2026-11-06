@@ -6,6 +6,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import com.example.wavora.theme.WavoraTheme
 
 class MainActivity : ComponentActivity() {
@@ -18,8 +20,17 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            WavoraTheme {
-                MainNavigation()
+            val viewModel: MediaViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            val uiState by viewModel.uiState.collectAsState()
+            val accent = com.example.wavora.theme.WavoraAccents.getOrElse(uiState.customization.accentColorIndex) {
+                com.example.wavora.theme.WavoraAccents[0]
+            }.color
+            val bg = com.example.wavora.theme.WavoraBgThemes.getOrElse(uiState.customization.bgThemeIndex) {
+                com.example.wavora.theme.WavoraBgThemes[0]
+            }.bg
+
+            WavoraTheme(accentColor = accent, bgColor = bg) {
+                MainNavigation(viewModel = viewModel)
             }
         }
     }

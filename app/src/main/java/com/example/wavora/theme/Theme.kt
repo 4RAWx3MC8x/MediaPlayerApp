@@ -25,9 +25,32 @@ private val WavoraDarkColorScheme = darkColorScheme(
 )
 
 @Composable
-fun WavoraTheme(content: @Composable () -> Unit) {
+fun WavoraTheme(
+    accentColor: Color = AccentBlue,
+    bgColor: Color = DarkBg,
+    content: @Composable () -> Unit
+) {
+    val dynamicScheme = darkColorScheme(
+        primary = accentColor,
+        onPrimary = OnAccent,
+        secondary = accentColor.copy(alpha = 0.2f),
+        onSecondary = OnAccent,
+        tertiary = accentColor.copy(alpha = 0.4f),
+        onTertiary = OnAccent,
+        background = bgColor,
+        onBackground = TextPrimary,
+        surface = if (bgColor == Color.Black) Color(0xFF0D0D0D) else DarkSurface,
+        onSurface = TextPrimary,
+        surfaceVariant = if (bgColor == Color.Black) Color(0xFF161616) else ChipBg,
+        onSurfaceVariant = TextSecondary,
+        outline = Divider,
+        outlineVariant = BorderLight,
+        error = Color(0xFFEF4444),
+        onError = Color.White,
+    )
+
     MaterialTheme(
-        colorScheme = WavoraDarkColorScheme,
+        colorScheme = dynamicScheme,
         typography = Typography,
         content = content,
     )

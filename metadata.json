@@ -1,0 +1,8 @@
+{
+  "name": "Wavora",
+  "description": "Wavora media player application for playing audio and video files",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.wavora.data.MediaItem
+import com.example.wavora.data.formatDuration
 import com.example.wavora.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch

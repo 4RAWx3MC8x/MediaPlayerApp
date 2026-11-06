@@ -54,3 +54,31 @@ val WaveGlow            = Color(0xFF3B82F6)
 // ─── YouTube & Car specific ───────────────────────────────────────────────
 val YouTubeRed          = Color(0xFFFF0033)
 val CarBlue             = Color(0xFF60A5FA)
+
+data class ColorPaletteItem(
+    val name: String,
+    val color: Color,
+    val glow: Color
+)
+
+val WavoraAccents = listOf(
+    ColorPaletteItem("Cobalt Blue", Color(0xFF3B82F6), Color(0x553B82F6)),
+    ColorPaletteItem("Emerald Green", Color(0xFF10B981), Color(0x5510B981)),
+    ColorPaletteItem("Cyber Purple", Color(0xFF8B5CF6), Color(0x558B5CF6)),
+    ColorPaletteItem("Sunset Coral", Color(0xFFF43F5E), Color(0x55F43F5E)),
+    ColorPaletteItem("Neon Amber", Color(0xFFF59E0B), Color(0x55F59E0B)),
+    ColorPaletteItem("Cyan Glow", Color(0xFF06B6D4), Color(0x5506B6D4)),
+)
+
+data class BgThemeItem(
+    val name: String,
+    val bg: Color,
+    val surface: Color,
+    val card: Color
+)
+
+val WavoraBgThemes = listOf(
+    BgThemeItem("Midnight Navy", Color(0xFF070B14), Color(0xFF0D1320), Color(0xFF111827)),
+    BgThemeItem("OLED True Black", Color(0xFF000000), Color(0xFF0A0A0A), Color(0xFF141414)),
+    BgThemeItem("Carbon Slate", Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF1E293B)),
+)

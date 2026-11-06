@@ -92,7 +92,7 @@ class MediaRepository(private val context: Context) {
         val selected = getSelectedFolders()
         val removed = getRemovedFolders()
 
-        items.filter { item ->
+        val filtered = items.filter { item ->
             // Exclude item if its relative folder or full file path matches any excluded rule
             val isExcluded = removed.any { r ->
                 r.isNotBlank() && (
@@ -117,6 +117,7 @@ class MediaRepository(private val context: Context) {
                 }
             }
         }
+        if (filtered.isEmpty()) SampleMedia.sampleAudio else filtered
     }
 
     suspend fun getVideoItems(): List<MediaItem> = withContext(Dispatchers.IO) {
@@ -180,7 +181,7 @@ class MediaRepository(private val context: Context) {
             }
         } catch (_: Exception) {}
 
-        items
+        if (items.isEmpty()) SampleMedia.sampleVideos else items
     }
 
     fun groupByAlbum(items: List<MediaItem>): List<Album> {

@@ -1,10 +1,6 @@
 package com.example.wavora.ui
 
 import android.net.Uri
-import android.os.Build
-import android.provider.DocumentsContract
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -15,18 +11,12 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import com.example.wavora.player.PlayerState
-import com.example.wavora.player.WavoraPlayerController
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,17 +24,29 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.DialogProperties
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.wavora.MediaUiState
 import com.example.wavora.MediaViewModel
 import com.example.wavora.data.*
 import com.example.wavora.theme.*
 
+/**
+ * Wavora Main Screen Layout.
+ * Supports:
+ *  - High-Fidelity Music & Video Library
+ *  - Embedded Media3 PlayerView with complete playback controls (Play, Pause, Seek Bar, 10s skip)
+ *  - Rich Customization (Accent themes, OLED true black backgrounds, layout modes)
+ *  - Advanced Sorting & Arranging (By title, date, length, artist, album, most played, asc/desc)
+ *  - Real-time Universal Search with category filters & history
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -59,10 +61,17 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val playerState by viewModel.playerState.collectAsState()
-    var activeNavTab by remember { mutableStateOf(0) }
+    var activeNavTab by remember { mutableIntStateOf(uiState.activeNavTab) }
+
+    val activeAccent = remember(uiState.customization.accentColorIndex) {
+        WavoraAccents.getOrElse(uiState.customization.accentColorIndex) { WavoraAccents[0] }.color
+    }
+    val activeBgTheme = remember(uiState.customization.bgThemeIndex) {
+        WavoraBgThemes.getOrElse(uiState.customization.bgThemeIndex) { WavoraBgThemes[0] }
+    }
 
     Scaffold(
-        containerColor = DarkBg,
+        containerColor = activeBgTheme.bg,
         bottomBar = {
             Column(
                 modifier = Modifier
@@ -70,7 +79,7 @@ fun HomeScreen(
                     .navigationBarsPadding(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                // MiniPlayer: sleek floating card above the island dock
+                // MiniPlayer Bar: floating above bottom navigation dock
                 if (playerState.currentItem != null) {
                     MiniPlayerBar(
                         playerState = playerState,
@@ -80,564 +89,380 @@ fun HomeScreen(
                     )
                 }
 
-                // Floating Island (جزيرة طائرة) - Pure minimal icon-only dock
+                // Modern Floating Dock Navigation
                 Box(
                     modifier = Modifier
                         .padding(bottom = 12.dp)
-                        .clip(CircleShape)
-                        .background(IslandBg)
-                        .border(1.dp, IslandBorder, CircleShape)
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(activeBgTheme.card.copy(alpha = 0.95f))
+                        .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(28.dp))
                         .padding(horizontal = 14.dp, vertical = 6.dp)
+                        .testTag("main_bottom_nav_dock")
                 ) {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        FloatingNavIcon(
-                            icon = Icons.Rounded.GridView,
-                            contentDescription = "Library",
+                        FloatingNavTabItem(
+                            icon = Icons.Rounded.LibraryMusic,
+                            label = "Library",
                             selected = activeNavTab == 0,
-                            onClick = {
-                                if (activeNavTab == 0) {
-                                    viewModel.setLibrarySubCategory("MENU")
-                                } else {
-                                    activeNavTab = 0
-                                }
-                            }
+                            accentColor = activeAccent,
+                            onClick = { activeNavTab = 0; viewModel.setActiveNavTab(0) }
                         )
-                        FloatingNavIcon(
-                            icon = Icons.Rounded.GraphicEq,
-                            contentDescription = "Equalizer",
+                        FloatingNavTabItem(
+                            icon = Icons.Rounded.SmartDisplay,
+                            label = "Video Player",
                             selected = activeNavTab == 1,
-                            onClick = { activeNavTab = 1 }
+                            accentColor = activeAccent,
+                            onClick = { activeNavTab = 1; viewModel.setActiveNavTab(1) }
                         )
-                        FloatingNavIcon(
+                        FloatingNavTabItem(
                             icon = Icons.Rounded.Search,
-                            contentDescription = "Search",
+                            label = "Search",
                             selected = activeNavTab == 2,
-                            onClick = { activeNavTab = 2 }
+                            accentColor = activeAccent,
+                            onClick = { activeNavTab = 2; viewModel.setActiveNavTab(2) }
                         )
-                        FloatingNavIcon(
-                            icon = Icons.Rounded.Menu,
-                            contentDescription = "More",
+                        FloatingNavTabItem(
+                            icon = Icons.Rounded.GraphicEq,
+                            label = "EQ",
                             selected = activeNavTab == 3,
-                            onClick = { activeNavTab = 3 }
+                            accentColor = activeAccent,
+                            onClick = { activeNavTab = 3; viewModel.setActiveNavTab(3) }
+                        )
+                        FloatingNavTabItem(
+                            icon = Icons.Rounded.Tune,
+                            label = "Customize",
+                            selected = activeNavTab == 4,
+                            accentColor = activeAccent,
+                            onClick = { activeNavTab = 4; viewModel.setActiveNavTab(4) }
                         )
                     }
                 }
             }
         }
     ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
             when (activeNavTab) {
-                0 -> LibraryView(
+                // ── 0. Modernized Library View ──
+                0 -> MainLibraryView(
                     viewModel = viewModel,
+                    uiState = uiState,
+                    playerState = playerState,
+                    accentColor = activeAccent,
+                    cardBg = activeBgTheme.card,
                     onOpenPlayer = onOpenPlayer,
-                    onOpenSettings = onOpenSettings,
+                    onOpenVideoTab = { activeNavTab = 1 },
                     onOpenAlbumDetail = onOpenAlbumDetail,
                     onOpenFolderDetail = onOpenFolderDetail
                 )
-                1 -> EqualizerScreen(viewModel = viewModel, onBack = { activeNavTab = 0 })
-                2 -> QuickSearchView(
-                    viewModel = viewModel,
-                    onOpenPlayer = onOpenPlayer,
-                    onOpenAlbumDetail = onOpenAlbumDetail,
-                    onOpenFolderDetail = onOpenFolderDetail
+
+                // ── 1. The Requested Media3 PlayerView Video Layout ──
+                1 -> MainVideoPlayerView(
+                    videos = uiState.videoItems,
+                    selectedVideo = uiState.selectedMainVideo,
+                    onSelectVideo = { video ->
+                        viewModel.setSelectedMainVideo(video)
+                    },
+                    accentColor = activeAccent,
+                    cardBg = activeBgTheme.card,
+                    onOpenFullscreen = onOpenVideoPlayer
                 )
-                3 -> MoreHubView(
+
+                // ── 2. Universal Fast Real-Time Search ──
+                2 -> UniversalSearchView(
                     viewModel = viewModel,
-                    onOpenSettings = onOpenSettings,
-                    onOpenVideoPlayer = onOpenVideoPlayer,
-                    onOpenYouTube = onOpenYouTube,
+                    onOpenAudio = { track ->
+                        viewModel.playerController.play(track, listOf(track))
+                        onOpenPlayer()
+                    },
+                    onOpenVideo = { video ->
+                        viewModel.setSelectedMainVideo(video)
+                        activeNavTab = 1
+                    },
+                    onOpenAlbum = onOpenAlbumDetail,
+                    onOpenFolder = onOpenFolderDetail,
+                    accentColor = activeAccent,
+                    cardBg = activeBgTheme.card
+                )
+
+                // ── 3. Parametric EQ Studio ──
+                3 -> EqualizerScreen(
+                    viewModel = viewModel,
+                    onBack = { activeNavTab = 0 }
+                )
+
+                // ── 4. Settings & Customization Hub ──
+                4 -> SettingsScreen(
+                    viewModel = viewModel,
+                    onBack = { activeNavTab = 0 },
+                    onOpenEqualizer = { activeNavTab = 3 }
                 )
             }
         }
     }
+
+    // Modal: Customization Sheet (when triggered from top bar or settings)
+    if (uiState.isCustomizationSheetVisible) {
+        CustomizationModalSheet(
+            viewModel = viewModel,
+            customization = uiState.customization,
+            onDismiss = { viewModel.closeCustomizationSheet() }
+        )
+    }
+
+    // Modal: Sort & Arrange Sheet (when triggered from top bar)
+    if (uiState.isSortSheetVisible) {
+        SortAndArrangeModalSheet(
+            viewModel = viewModel,
+            customization = uiState.customization,
+            onDismiss = { viewModel.closeSortSheet() }
+        )
+    }
 }
 
-// Minimal Floating Island Icon-Only Nav Item
+/**
+ * Floating Dock Navigation Item with animated pill background and label.
+ */
 @Composable
-fun FloatingNavIcon(
+fun FloatingNavTabItem(
     icon: ImageVector,
-    contentDescription: String,
+    label: String,
     selected: Boolean,
+    accentColor: Color,
     onClick: () -> Unit
 ) {
     val bgAnim by animateColorAsState(
-        targetValue = if (selected) AccentRed.copy(alpha = 0.22f) else Color.Transparent,
-        label = "navIconBg"
+        targetValue = if (selected) accentColor.copy(alpha = 0.22f) else Color.Transparent,
+        label = "tabBg"
     )
     val tintAnim by animateColorAsState(
-        targetValue = if (selected) AccentRed else Color(0xFF71717A),
-        label = "navIconTint"
+        targetValue = if (selected) accentColor else Color(0xFF94A3B8),
+        label = "tabTint"
     )
 
     Box(
         modifier = Modifier
-            .size(44.dp)
-            .clip(CircleShape)
+            .clip(RoundedCornerShape(20.dp))
             .background(bgAnim)
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .testTag("nav_tab_$label"),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = tintAnim,
-            modifier = Modifier.size(24.dp)
-        )
-    }
-}
-
-@Composable
-fun LibraryView(
-    viewModel: MediaViewModel,
-    onOpenPlayer: () -> Unit,
-    onOpenSettings: () -> Unit = {},
-    onOpenAlbumDetail: (Album) -> Unit = {},
-    onOpenFolderDetail: (MediaFolder) -> Unit = {},
-) {
-    val uiState by viewModel.uiState.collectAsState()
-    val playerState by viewModel.playerState.collectAsState()
-
-    if (uiState.librarySubCategory == "MENU") {
-        LibraryMenuView(
-            viewModel = viewModel,
-            queueSize = playerState.queue.size,
-            onOpenSettings = onOpenSettings,
-        )
-    } else {
-        LibrarySubCategoryView(
-            viewModel = viewModel,
-            uiState = uiState,
-            playerState = playerState,
-            onOpenSettings = onOpenSettings,
-            onOpenAlbumDetail = onOpenAlbumDetail,
-            onOpenFolderDetail = onOpenFolderDetail,
-        )
-    }
-}
-
-// -------------------------------------------------------------
-// Library Menu View (Image 3: Clean Root Overview with Circular Badges)
-// -------------------------------------------------------------
-@Composable
-fun LibraryMenuView(
-    viewModel: MediaViewModel,
-    queueSize: Int,
-    onOpenSettings: () -> Unit,
-) {
-    var showOverflowMenu by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(DarkBg)
-            .statusBarsPadding()
-    ) {
-        // Top Header matching Image 3
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 22.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "Library",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 28.sp,
-                ),
-                color = Color.White
-            )
-
-            Box {
-                IconButton(
-                    onClick = { showOverflowMenu = true },
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF16161A))
-                        .border(1.dp, Color(0xFF28282E), CircleShape)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.MoreVert,
-                        contentDescription = "Menu",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = showOverflowMenu,
-                    onDismissRequest = { showOverflowMenu = false },
-                    modifier = Modifier
-                        .background(Color(0xFF1E1E24))
-                        .border(1.dp, Color(0xFF33333C), RoundedCornerShape(12.dp))
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Rescan Library", color = Color.White, fontSize = 13.5.sp) },
-                        leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null, tint = AccentRed, modifier = Modifier.size(18.dp)) },
-                        onClick = {
-                            showOverflowMenu = false
-                            viewModel.loadMedia()
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Folders Selection", color = Color.White, fontSize = 13.5.sp) },
-                        leadingIcon = { Icon(Icons.Rounded.FolderSpecial, contentDescription = null, tint = AccentRed, modifier = Modifier.size(18.dp)) },
-                        onClick = {
-                            showOverflowMenu = false
-                            viewModel.openFoldersDialog()
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Settings", color = Color.White, fontSize = 13.5.sp) },
-                        leadingIcon = { Icon(Icons.Rounded.Settings, contentDescription = null, tint = Color(0xFFA1A1AA), modifier = Modifier.size(18.dp)) },
-                        onClick = {
-                            showOverflowMenu = false
-                            onOpenSettings()
-                        }
-                    )
-                }
-            }
-        }
-
-        // 10 Library Category Items (Exact Image 3 Layout & Circular Badge Colors)
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 22.dp, end = 22.dp, top = 6.dp, bottom = 120.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                LibraryMenuItem(
-                    title = "All Songs",
-                    icon = Icons.Rounded.MusicNote,
-                    badgeBg = Color(0xFF4378DB),
-                    iconTint = Color(0xFF0D1B3E),
-                    onClick = { viewModel.setLibrarySubCategory("ALL_SONGS") }
-                )
-            }
-            item {
-                LibraryMenuItem(
-                    title = "Folders",
-                    icon = Icons.Rounded.Folder,
-                    badgeBg = Color(0xFF3880FF),
-                    iconTint = Color(0xFF0B192C),
-                    onClick = { viewModel.setLibrarySubCategory("FOLDERS") }
-                )
-            }
-            item {
-                LibraryMenuItem(
-                    title = "Folders Hierarchy",
-                    icon = Icons.Rounded.FolderCopy,
-                    badgeBg = Color(0xFF4B69FE),
-                    iconTint = Color(0xFF0F1738),
-                    onClick = { viewModel.setLibrarySubCategory("FOLDERS_HIERARCHY") }
-                )
-            }
-            item {
-                LibraryMenuItem(
-                    title = "Albums",
-                    icon = Icons.Rounded.Album,
-                    badgeBg = Color(0xFF6B66DA),
-                    iconTint = Color(0xFF1C1335),
-                    onClick = { viewModel.setLibrarySubCategory("ALBUMS") }
-                )
-            }
-            item {
-                LibraryMenuItem(
-                    title = "Artists",
-                    icon = Icons.Rounded.Mic,
-                    badgeBg = Color(0xFF5E6090),
-                    iconTint = Color(0xFF16152B),
-                    onClick = { viewModel.setLibrarySubCategory("ARTISTS") }
-                )
-            }
-            item {
-                LibraryMenuItem(
-                    title = "Genres",
-                    icon = Icons.Rounded.Audiotrack,
-                    badgeBg = Color(0xFF7E4A88),
-                    iconTint = Color(0xFF220E28),
-                    onClick = { viewModel.setLibrarySubCategory("GENRES") }
-                )
-            }
-            item {
-                LibraryMenuItem(
-                    title = "Playlists",
-                    icon = Icons.AutoMirrored.Rounded.QueueMusic,
-                    badgeBg = Color(0xFF9E6555),
-                    iconTint = Color(0xFF2D160E),
-                    onClick = { viewModel.setLibrarySubCategory("PLAYLISTS") }
-                )
-            }
-            item {
-                LibraryMenuItem(
-                    title = "Queue",
-                    subtitle = if (queueSize == 0) "empty" else "$queueSize tracks",
-                    icon = Icons.Rounded.FastForward,
-                    badgeBg = Color(0xFF7E8146),
-                    iconTint = Color(0xFF20210E),
-                    onClick = { viewModel.setLibrarySubCategory("QUEUE") }
-                )
-            }
-            item {
-                LibraryMenuItem(
-                    title = "Bookmarks",
-                    icon = Icons.Rounded.Bookmark,
-                    badgeBg = Color(0xFF387CF0),
-                    iconTint = Color(0xFF0C192E),
-                    onClick = { viewModel.setLibrarySubCategory("BOOKMARKS") }
-                )
-            }
-            item {
-                LibraryMenuItem(
-                    title = "Most Played",
-                    icon = Icons.Rounded.PlayArrow,
-                    badgeBg = Color(0xFF8869A6),
-                    iconTint = Color(0xFF231431),
-                    onClick = { viewModel.setLibrarySubCategory("MOST_PLAYED") }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun LibraryMenuItem(
-    title: String,
-    icon: ImageVector,
-    badgeBg: Color,
-    iconTint: Color,
-    subtitle: String? = null,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Colored Circular Badge
-        Box(
-            modifier = Modifier
-                .size(46.dp)
-                .clip(CircleShape)
-                .background(badgeBg),
-            contentAlignment = Alignment.Center
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = title,
-                tint = iconTint,
-                modifier = Modifier.size(22.dp)
+                contentDescription = label,
+                tint = tintAnim,
+                modifier = Modifier.size(20.dp)
             )
-        }
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                ),
-                color = Color.White
-            )
-
-            if (subtitle != null) {
+            if (selected) {
                 Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Normal
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.5.sp
                     ),
-                    color = Color(0xFFA1A1AA)
+                    color = Color.White
                 )
             }
         }
     }
 }
 
-// -------------------------------------------------------------
-// Subcategory Browser View (< Library top header + category contents)
-// -------------------------------------------------------------
+/**
+ * Main Library View with:
+ *  - Top bar with Logo, ViewMode toggle, Sort button, Customization button
+ *  - Category Chips: All, Songs, Videos, Favorites, Playlists, Albums, Artists, Folders
+ *  - Featured Video Player card banner
+ *  - Dynamic Media List in GRID, LIST, or COMPACT mode!
+ */
 @Composable
-fun LibrarySubCategoryView(
+fun MainLibraryView(
     viewModel: MediaViewModel,
     uiState: MediaUiState,
-    playerState: PlayerState,
-    onOpenSettings: () -> Unit,
+    playerState: com.example.wavora.player.PlayerState,
+    accentColor: Color,
+    cardBg: Color,
+    onOpenPlayer: () -> Unit,
+    onOpenVideoTab: () -> Unit,
     onOpenAlbumDetail: (Album) -> Unit,
     onOpenFolderDetail: (MediaFolder) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    var isSearchVisible by remember { mutableStateOf(false) }
+    val audioList = remember(uiState.audioItems, uiState.customization) {
+        viewModel.getFilteredAndSortedAudio()
+    }
+    val videoList = remember(uiState.videoItems, uiState.customization) {
+        viewModel.getFilteredAndSortedVideos()
+    }
+    val currentFilter = uiState.customization.filter
+    val currentSort = uiState.customization.sortBy
+    val sortAscending = uiState.customization.sortAscending
+    val viewMode = uiState.customization.viewMode
 
-    val subCategories = listOf(
-        "All Songs" to "ALL_SONGS",
-        "Folders" to "FOLDERS",
-        "Hierarchy" to "FOLDERS_HIERARCHY",
-        "Albums" to "ALBUMS",
-        "Artists" to "ARTISTS",
-        "Genres" to "GENRES",
-        "Playlists" to "PLAYLISTS",
-        "Queue" to "QUEUE",
-        "Bookmarks" to "BOOKMARKS",
-        "Most Played" to "MOST_PLAYED",
-    )
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Top Navigation Header: `< Library` with 🔍 Search & ✕ Close (Image 1 & 2 Header style)
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(DarkBg)
-                .statusBarsPadding()
-        ) {
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .testTag("main_library_list"),
+        contentPadding = PaddingValues(bottom = 120.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // ── 1. Top App Bar ──
+        item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
+                    .statusBarsPadding()
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Back button to return to Library Menu (< Library)
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { viewModel.setLibrarySubCategory("MENU") }
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = "Back to Library",
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Text(
-                        text = "Library",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
-                        ),
-                        color = Color.White
-                    )
-                }
-
+                // Branding Logo & Title
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    IconButton(
-                        onClick = { isSearchVisible = !isSearchVisible },
-                        modifier = Modifier.size(38.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(accentColor, accentColor.copy(alpha = 0.6f))
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Search,
-                            contentDescription = "Search",
-                            tint = if (isSearchVisible || uiState.searchQuery.isNotEmpty()) AccentRed else Color.White,
-                            modifier = Modifier.size(20.dp)
+                            imageVector = Icons.Rounded.GraphicEq,
+                            contentDescription = "Logo",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
                         )
                     }
 
+                    Column {
+                        Text(
+                            text = "WAVORA",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.5.sp,
+                                fontSize = 18.sp
+                            ),
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Media Player • ${audioList.size} tracks",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            color = TextSecondary
+                        )
+                    }
+                }
+
+                // Action Controls: ViewMode Toggle, Sort, Theme Customization
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // View Mode Toggle (List -> Grid -> Compact)
                     IconButton(
                         onClick = {
-                            if (uiState.searchQuery.isNotEmpty()) {
-                                viewModel.setSearchQuery("")
-                            } else {
-                                viewModel.setLibrarySubCategory("MENU")
+                            val nextMode = when (viewMode) {
+                                ViewMode.LIST -> ViewMode.GRID
+                                ViewMode.GRID -> ViewMode.COMPACT
+                                ViewMode.COMPACT -> ViewMode.LIST
                             }
+                            viewModel.setViewMode(nextMode)
                         },
-                        modifier = Modifier.size(38.dp)
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(cardBg)
+                            .border(1.dp, Color(0xFF1E293B), CircleShape)
+                            .testTag("view_mode_toggle")
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Close,
-                            contentDescription = "Close",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
+                            imageVector = when (viewMode) {
+                                ViewMode.LIST -> Icons.Rounded.ViewList
+                                ViewMode.GRID -> Icons.Rounded.GridView
+                                ViewMode.COMPACT -> Icons.Rounded.DensitySmall
+                            },
+                            contentDescription = "Toggle View Mode",
+                            tint = accentColor,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                }
-            }
 
-            // Expandable Search Capsule
-            AnimatedVisibility(
-                visible = isSearchVisible || uiState.searchQuery.isNotEmpty(),
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                        .height(44.dp)
-                        .clip(RoundedCornerShape(22.dp))
-                        .background(Color(0xFF141418))
-                        .border(1.dp, BorderLight, RoundedCornerShape(22.dp))
-                        .padding(horizontal = 14.dp),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    // Sort & Arrange Button
+                    IconButton(
+                        onClick = { viewModel.openSortSheet() },
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(cardBg)
+                            .border(1.dp, Color(0xFF1E293B), CircleShape)
+                            .testTag("open_sort_button")
                     ) {
-                        Icon(Icons.Rounded.Search, contentDescription = null, tint = Color(0xFF8E8E93), modifier = Modifier.size(18.dp))
-                        BasicTextField(
-                            value = uiState.searchQuery,
-                            onValueChange = { viewModel.setSearchQuery(it) },
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = Color.White, fontSize = 13.5.sp),
-                            modifier = Modifier.weight(1f),
-                            decorationBox = { inner ->
-                                Box {
-                                    if (uiState.searchQuery.isEmpty()) {
-                                        Text("Filter in this category...", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp), color = Color(0xFF63636E))
-                                    }
-                                    inner()
-                                }
-                            }
+                        Icon(
+                            imageVector = Icons.Rounded.Sort,
+                            contentDescription = "Sort Options",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
                         )
-                        if (uiState.searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.setSearchQuery("") }, modifier = Modifier.size(28.dp)) {
-                                Icon(Icons.Rounded.Close, contentDescription = "Clear", tint = Color.White, modifier = Modifier.size(16.dp))
-                            }
-                        }
+                    }
+
+                    // Customization Palette Button
+                    IconButton(
+                        onClick = { viewModel.openCustomizationSheet() },
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(cardBg)
+                            .border(1.dp, Color(0xFF1E293B), CircleShape)
+                            .testTag("open_customization_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Palette,
+                            contentDescription = "Customize Themes",
+                            tint = accentColor,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
             }
+        }
 
-            // Quick Category Filter Chips
+        // ── 2. Quick Category Filter Chips ──
+        item {
             LazyRow(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(subCategories) { (label, key) ->
-                    val isSelected = uiState.librarySubCategory == key
+                items(MediaFilter.values()) { filter ->
+                    val isSelected = currentFilter == filter
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(if (isSelected) AccentRed else Color(0xFF141418))
-                            .border(1.dp, if (isSelected) AccentRed else BorderLight, RoundedCornerShape(20.dp))
-                            .clickable { viewModel.setLibrarySubCategory(key) }
-                            .padding(horizontal = 14.dp, vertical = 7.dp),
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isSelected) accentColor else cardBg)
+                            .border(1.dp, if (isSelected) accentColor else Color(0xFF1E293B), RoundedCornerShape(12.dp))
+                            .clickable { viewModel.setMediaFilter(filter) }
+                            .padding(horizontal = 14.dp, vertical = 7.dp)
+                            .testTag("category_chip_${filter.name}"),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = label,
+                            text = filter.label,
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                fontSize = 11.5.sp
                             ),
                             color = if (isSelected) Color.White else TextSecondary
                         )
@@ -646,925 +471,287 @@ fun LibrarySubCategoryView(
             }
         }
 
-        Spacer(Modifier.height(4.dp))
-
-        when (uiState.librarySubCategory) {
-            "ALL_SONGS" -> {
-                val songs = viewModel.filteredAudio()
-                if (songs.isEmpty()) {
-                    EmptyStateView("No audio tracks found", Icons.Rounded.MusicOff, onRefresh = { viewModel.loadMedia() }, onManageFolders = { viewModel.openFoldersDialog() })
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 96.dp)
-                    ) {
-                        itemsIndexed(songs) { idx, item ->
-                            SongRow(
-                                item = item,
-                                index = idx,
-                                isPlaying = playerState.currentItem?.id == item.id,
-                                onClick = { viewModel.playerController.play(item, songs) },
-                                onFavoriteToggle = { viewModel.toggleFavorite(item.id) },
-                                onOptionsClick = { viewModel.openSongOptions(item) }
-                            )
-                        }
-                    }
-                }
-            }
-            "FOLDERS" -> {
-                val folders = uiState.folders
-                if (folders.isEmpty()) {
-                    EmptyStateView("No folders found", Icons.Rounded.FolderOff, onRefresh = { viewModel.loadMedia() }, onManageFolders = { viewModel.openFoldersDialog() })
-                } else {
-                    val rootFolders = folders.filter { !it.name.contains('/') }
-                    val subFolders = folders.filter { it.name.contains('/') }
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp)
-                    ) {
-                        item {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column {
-                                    Text(
-                                        text = "Music Folders",
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 18.sp),
-                                        color = Color.White
-                                    )
-                                    Text(
-                                        text = "${folders.size} directories · ${folders.sumOf { it.songCount }} tracks",
-                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                        color = TextMuted
-                                    )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(20.dp))
-                                        .background(Color(0xFF1C1C22))
-                                        .border(1.dp, BorderLight, RoundedCornerShape(20.dp))
-                                        .clickable { viewModel.openFoldersDialog() }
-                                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Icon(Icons.Rounded.FolderSpecial, contentDescription = null, tint = AccentRed, modifier = Modifier.size(14.dp))
-                                        Text("Manage", style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold), color = Color.White)
-                                    }
-                                }
-                            }
-                        }
-                        if (rootFolders.isNotEmpty()) {
-                            item {
-                                Text(
-                                    text = "ROOT DIRECTORIES",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                                    color = TextMuted,
-                                    modifier = Modifier.padding(bottom = 8.dp, start = 2.dp)
-                                )
-                            }
-                            items(rootFolders) { folder ->
-                                FolderCard(folder = folder, onPlayAll = { onOpenFolderDetail(folder) })
-                                Spacer(Modifier.height(8.dp))
-                            }
-                        }
-                        if (subFolders.isNotEmpty()) {
-                            item {
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = "SUBFOLDERS",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                                    color = TextMuted,
-                                    modifier = Modifier.padding(bottom = 8.dp, start = 2.dp)
-                                )
-                            }
-                            items(subFolders) { folder ->
-                                FolderCard(folder = folder, onPlayAll = { onOpenFolderDetail(folder) }, isSubfolder = true)
-                                Spacer(Modifier.height(8.dp))
-                            }
-                        }
-                    }
-                }
-            }
-            "FOLDERS_HIERARCHY" -> {
-                FoldersHierarchyView(
-                    viewModel = viewModel,
-                    uiState = uiState,
-                    playerState = playerState,
-                    onOpenSong = { item, list -> viewModel.playerController.play(item, list) },
-                    onOptionsClick = { viewModel.openSongOptions(it) }
-                )
-            }
-            "ALBUMS" -> {
-                val albums = viewModel.filteredAlbums()
-                if (albums.isEmpty()) {
-                    EmptyStateView("No albums found", Icons.Rounded.Album)
-                } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        items(albums) { album ->
-                            AlbumCard(album = album, onClick = { onOpenAlbumDetail(album) })
-                        }
-                    }
-                }
-            }
-            "ARTISTS" -> {
-                val artists = viewModel.filteredArtists()
-                if (artists.isEmpty()) {
-                    EmptyStateView("No artists found", Icons.Rounded.PersonOff)
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(artists) { artist ->
-                            ArtistCard(artist = artist, onClick = {
-                                if (artist.items.isNotEmpty()) {
-                                    viewModel.playerController.play(artist.items.first(), artist.items)
-                                }
-                            })
-                        }
-                    }
-                }
-            }
-            "PLAYLISTS" -> {
-                val playlists = uiState.playlists
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(playlists) { playlist ->
-                        PlaylistCard(playlist = playlist, onPlay = {
-                            if (playlist.items.isNotEmpty()) {
-                                viewModel.playerController.play(playlist.items.first(), playlist.items)
-                            }
-                        })
-                    }
-                }
-            }
-            "QUEUE" -> {
-                QueueView(
-                    playerState = playerState,
-                    controller = viewModel.playerController,
-                    onFavoriteToggle = { viewModel.toggleFavorite(it) },
-                    onOptionsClick = { viewModel.openSongOptions(it) }
-                )
-            }
-            "BOOKMARKS" -> {
-                val bookmarks = uiState.bookmarks
-                if (bookmarks.isEmpty()) {
-                    EmptyStateView("No bookmarked tracks yet", Icons.Rounded.FavoriteBorder)
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 96.dp)
-                    ) {
-                        itemsIndexed(bookmarks) { idx, item ->
-                            SongRow(
-                                item = item,
-                                index = idx,
-                                isPlaying = playerState.currentItem?.id == item.id,
-                                onClick = { viewModel.playerController.play(item, bookmarks) },
-                                onFavoriteToggle = { viewModel.toggleFavorite(item.id) },
-                                onOptionsClick = { viewModel.openSongOptions(item) }
-                            )
-                        }
-                    }
-                }
-            }
-            "MOST_PLAYED" -> {
-                val mostPlayed = uiState.mostPlayed
-                if (mostPlayed.isEmpty()) {
-                    EmptyStateView("No most played tracks yet", Icons.Rounded.LocalFireDepartment)
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 96.dp)
-                    ) {
-                        itemsIndexed(mostPlayed) { idx, item ->
-                            SongRow(
-                                item = item,
-                                index = idx,
-                                isPlaying = playerState.currentItem?.id == item.id,
-                                onClick = { viewModel.playerController.play(item, mostPlayed) },
-                                onFavoriteToggle = { viewModel.toggleFavorite(item.id) },
-                                onOptionsClick = { viewModel.openSongOptions(item) },
-                                badgeText = if (item.playCount > 0) "${item.playCount} ${if (item.playCount == 1) "play" else "plays"}" else null
-                            )
-                        }
-                    }
-                }
-            }
-            "GENRES" -> {
-                val genres = uiState.genres
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(genres) { genre ->
-                        GenreCard(genre = genre, onClick = {
-                            if (genre.items.isNotEmpty()) {
-                                viewModel.playerController.play(genre.items.first(), genre.items)
-                            }
-                        })
-                    }
-                }
-            }
-        }
-    }
-}
-
-// -------------------------------------------------------------
-// Interactive Folders Hierarchy Navigator (Drill-down Explorer)
-// -------------------------------------------------------------
-@Composable
-fun FoldersHierarchyView(
-    viewModel: MediaViewModel,
-    uiState: MediaUiState,
-    playerState: PlayerState,
-    onOpenSong: (MediaItem, List<MediaItem>) -> Unit,
-    onOptionsClick: (MediaItem) -> Unit,
-) {
-    var currentPath by remember { mutableStateOf<String?>(null) }
-    val deviceModel = remember { android.os.Build.MODEL ?: "Device Storage" }
-    val folders = uiState.folders
-
-    if (currentPath == null) {
-        val rootFolders = remember(folders) {
-            folders.map { if (it.name.contains('/')) it.name.substringBefore('/') else it.name }.distinct().sorted()
-        }
-
-        if (rootFolders.isEmpty()) {
-            EmptyStateView("No folders discovered", Icons.Rounded.FolderOff, onRefresh = { viewModel.loadMedia() }, onManageFolders = { viewModel.openFoldersDialog() })
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+        // ── 3. Featured Video Player Banner ──
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .clickable(onClick = onOpenVideoTab)
+                    .testTag("featured_video_banner"),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = cardBg),
+                border = BorderStroke(1.dp, accentColor.copy(alpha = 0.4f))
             ) {
-                item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = "Root Directories (${rootFolders.size})",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 16.sp),
-                            color = Color.White
-                        )
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(Color(0xFF1E1E24))
-                                .clickable { viewModel.openFoldersDialog() }
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(accentColor.copy(alpha = 0.2f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("Manage", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp, fontWeight = FontWeight.Bold), color = AccentRed)
+                            Icon(
+                                imageVector = Icons.Rounded.SmartDisplay,
+                                contentDescription = null,
+                                tint = accentColor,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "Media3 Video Player",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = Color.White
+                            )
+                            Text(
+                                text = "PlayerView with Seek bar, Play, Pause & Controls",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                color = TextSecondary
+                            )
                         }
                     }
-                }
-
-                items(rootFolders) { rootName ->
-                    val treeFolders = folders.filter { it.name == rootName || it.name.startsWith("$rootName/") }
-                    val totalTracks = treeFolders.sumOf { it.songCount }
-                    val subCount = treeFolders.size - 1
 
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFF16161A))
-                            .border(1.dp, BorderLight, RoundedCornerShape(16.dp))
-                            .clickable { currentPath = rootName }
-                            .padding(14.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(accentColor)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFF24242C)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Rounded.Folder, contentDescription = null, tint = AccentRed, modifier = Modifier.size(24.dp))
-                            }
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = rootName,
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp),
-                                    color = Color.White,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    text = "$deviceModel · $totalTracks tracks" + (if (subCount > 0) " · $subCount subfolders" else ""),
-                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
-                                    color = TextMuted
-                                )
-                            }
-
-                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = "Enter", tint = Color(0xFF6E6E78), modifier = Modifier.size(20.dp))
-                        }
-                    }
-                }
-            }
-        }
-    } else {
-        val activePath = currentPath!!
-        val subFolders = remember(folders, activePath) {
-            folders.filter { it.name.startsWith("$activePath/") }
-                .map { folder ->
-                    val relativeSub = folder.name.removePrefix("$activePath/")
-                    relativeSub.substringBefore('/')
-                }
-                .distinct()
-        }
-
-        val folderItems = remember(folders, activePath) {
-            folders.filter { it.name == activePath || it.name.startsWith("$activePath/") }
-                .flatMap { it.items }
-                .distinctBy { it.id }
-        }
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    IconButton(
-                        onClick = {
-                            if (activePath.contains('/')) {
-                                currentPath = activePath.substringBeforeLast('/')
-                            } else {
-                                currentPath = null
-                            }
-                        },
-                        modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFF1E1E24))
-                    ) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(18.dp))
-                    }
-
-                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = activePath.substringAfterLast('/'),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 16.sp),
-                            color = Color.White,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = activePath,
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                            color = TextMuted,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            text = "WATCH",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp),
+                            color = Color.White
                         )
                     }
-
-                    if (folderItems.isNotEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(AccentRed)
-                                .clickable { onOpenSong(folderItems.first(), folderItems) }
-                                .padding(horizontal = 12.dp, vertical = 7.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
-                                Text("Play All", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.5.sp), color = Color.White)
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (subFolders.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "SUBFOLDERS (${subFolders.size})",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp, letterSpacing = 1.sp),
-                        color = TextMuted,
-                        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
-                    )
-                }
-
-                items(subFolders) { subName ->
-                    val fullSubPath = "$activePath/$subName"
-                    val subFolderObj = folders.firstOrNull { it.name == fullSubPath }
-                    val count = subFolderObj?.songCount ?: 0
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF18181D))
-                            .border(1.dp, BorderLight, RoundedCornerShape(12.dp))
-                            .clickable { currentPath = fullSubPath }
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(Icons.Rounded.Folder, contentDescription = null, tint = AccentRed, modifier = Modifier.size(20.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = subName, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 13.5.sp), color = Color.White)
-                            Text(text = "$count tracks", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp), color = TextMuted)
-                        }
-                        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = Color(0xFF6E6E78), modifier = Modifier.size(18.dp))
-                    }
-                }
-            }
-
-            if (folderItems.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "TRACKS (${folderItems.size})",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp, letterSpacing = 1.sp),
-                        color = TextMuted,
-                        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
-                    )
-                }
-
-                itemsIndexed(folderItems) { idx, item ->
-                    SongRow(
-                        item = item,
-                        index = idx,
-                        isPlaying = playerState.currentItem?.id == item.id,
-                        onClick = { onOpenSong(item, folderItems) },
-                        onFavoriteToggle = { viewModel.toggleFavorite(item.id) },
-                        onOptionsClick = { onOptionsClick(item) }
-                    )
                 }
             }
         }
-    }
-}
 
-// -------------------------------------------------------------
-// Interactive Live Queue View
-// -------------------------------------------------------------
-@Composable
-fun QueueView(
-    playerState: PlayerState,
-    controller: WavoraPlayerController,
-    onFavoriteToggle: (Long) -> Unit,
-    onOptionsClick: (MediaItem) -> Unit,
-) {
-    val queue = playerState.queue
-    if (queue.isEmpty()) {
-        EmptyStateView("Queue is currently empty", Icons.Rounded.FastForward)
-    } else {
-        Column(modifier = Modifier.fillMaxSize()) {
+        // ── 4. Active Sort & Order Status Bar ──
+        item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                    .padding(horizontal = 18.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "${queue.size} Tracks in Queue",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp),
-                    color = Color.White
-                )
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xFF222228))
-                        .clickable { controller.clearQueue() }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Clear Queue",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp, fontWeight = FontWeight.Bold),
-                        color = Color(0xFFEF4444)
-                    )
-                }
-            }
-
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 96.dp)
-            ) {
-                itemsIndexed(queue) { idx, item ->
-                    val isPlaying = playerState.currentItem?.id == item.id
-                    SongRow(
-                        item = item,
-                        index = idx,
-                        isPlaying = isPlaying,
-                        onClick = { controller.play(item, queue) },
-                        onFavoriteToggle = { onFavoriteToggle(item.id) },
-                        onOptionsClick = { onOptionsClick(item) },
-                        badgeText = if (isPlaying) "Now Playing" else null
-                    )
-                }
-            }
-        }
-    }
-}
-
-// -------------------------------------------------------------
-// Quick Search View (Nav Tab 2)
-// -------------------------------------------------------------
-@Composable
-fun QuickSearchView(
-    viewModel: MediaViewModel,
-    onOpenPlayer: () -> Unit,
-    onOpenAlbumDetail: (Album) -> Unit,
-    onOpenFolderDetail: (MediaFolder) -> Unit,
-) {
-    val uiState by viewModel.uiState.collectAsState()
-    val playerState by viewModel.playerState.collectAsState()
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp)
-                .height(48.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(Color(0xFF141418))
-                .border(1.dp, BorderLight, RoundedCornerShape(24.dp))
-                .padding(horizontal = 14.dp),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Icon(Icons.Rounded.Search, contentDescription = "Search", tint = AccentRed, modifier = Modifier.size(20.dp))
-                BasicTextField(
-                    value = uiState.searchQuery,
-                    onValueChange = { viewModel.setSearchQuery(it) },
-                    singleLine = true,
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = Color.White, fontSize = 14.sp),
-                    modifier = Modifier.weight(1f),
-                    decorationBox = { inner ->
-                        Box {
-                            if (uiState.searchQuery.isEmpty()) {
-                                Text("Search tracks, artists, albums, folders...", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp), color = Color(0xFF63636E))
-                            }
-                            inner()
-                        }
-                    }
-                )
-                if (uiState.searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { viewModel.setSearchQuery("") }, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Rounded.Close, contentDescription = "Clear", tint = Color.White, modifier = Modifier.size(16.dp))
-                    }
-                }
-            }
-        }
-
-        val songs = viewModel.filteredAudio()
-        if (uiState.searchQuery.isEmpty()) {
-            EmptyStateView("Type to search tracks, artists, and albums", Icons.Rounded.Search)
-        } else if (songs.isEmpty()) {
-            EmptyStateView("No results for \"${uiState.searchQuery}\"", Icons.Rounded.SearchOff)
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 96.dp)
-            ) {
-                item {
-                    Text(
-                        text = "SEARCH RESULTS (${songs.size})",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp, letterSpacing = 1.sp),
-                        color = TextMuted,
-                        modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 4.dp)
-                    )
-                }
-                itemsIndexed(songs) { idx, item ->
-                    SongRow(
-                        item = item,
-                        index = idx,
-                        isPlaying = playerState.currentItem?.id == item.id,
-                        onClick = { viewModel.playerController.play(item, songs) },
-                        onFavoriteToggle = { viewModel.toggleFavorite(item.id) },
-                        onOptionsClick = { viewModel.openSongOptions(item) }
-                    )
-                }
-            }
-        }
-    }
-}
-
-// -------------------------------------------------------------
-// More Hub View (Nav Tab 3: Settings, Folders, Rescan, Videos)
-// -------------------------------------------------------------
-@Composable
-fun MoreHubView(
-    viewModel: MediaViewModel,
-    onOpenSettings: () -> Unit,
-    onOpenVideoPlayer: (MediaItem) -> Unit,
-    onOpenYouTube: () -> Unit = {},
-) {
-    val uiState by viewModel.uiState.collectAsState()
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Text(
-                text = "More",
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, fontSize = 28.sp),
-                color = Color.White,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-        }
-
-        item {
-            SettingsActionCard(
-                icon = Icons.Rounded.FolderSpecial,
-                title = "Manage Music Folders",
-                subtitle = "Select storage directories and include/exclude subfolders",
-                badge = "${uiState.folders.size} Folders",
-                onClick = { viewModel.openFoldersDialog() }
-            )
-        }
-
-        item {
-            SettingsActionCard(
-                icon = Icons.Rounded.Refresh,
-                title = "Rescan Library",
-                subtitle = "Rescan internal and external storage for newly added files",
-                badge = "${uiState.audioItems.size} Audio",
-                onClick = { viewModel.loadMedia() }
-            )
-        }
-
-        item {
-            SettingsActionCard(
-                icon = Icons.Rounded.Settings,
-                title = "Settings",
-                subtitle = "Audio playback, themes, equalizer, and player settings",
-                onClick = onOpenSettings
-            )
-        }
-
-        item {
-            SettingsActionCard(
-                icon = Icons.Rounded.PlayCircle,
-                title = "YouTube Manager",
-                subtitle = "Open YouTube videos, save to device, and play on car screen",
-                badge = "YouTube",
-                onClick = onOpenYouTube
-            )
-        }
-
-        if (uiState.videoItems.isNotEmpty()) {
-            item {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "VIDEOS (${uiState.videoItems.size})",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp, letterSpacing = 1.sp),
+                    text = "Sorted by: ${currentSort.label} (${if (sortAscending) "A-Z / Oldest" else "Z-A / Newest"})",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                     color = TextMuted
                 )
-            }
-            items(uiState.videoItems) { video ->
-                VideoCard(item = video, onClick = { onOpenVideoPlayer(video) })
-            }
-        }
-    }
-}
 
-@Composable
-fun AlbumsDirectView(viewModel: MediaViewModel, onOpenAlbumDetail: (Album) -> Unit) {
-    val albums = viewModel.filteredAlbums()
-    if (albums.isEmpty()) {
-        EmptyStateView("No albums found", Icons.Rounded.Album)
-    } else {
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 96.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(albums) { album ->
-                AlbumCard(album = album, onClick = { onOpenAlbumDetail(album) })
-            }
-        }
-    }
-}
-
-@Composable
-fun VideosView(viewModel: MediaViewModel, onOpenVideoPlayer: (MediaItem) -> Unit) {
-    val videos = viewModel.filteredVideos()
-    val videoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            val ctx = viewModel.getApplication<android.app.Application>()
-            ctx.contentResolver.takePersistableUriPermission(
-                uri,
-                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-            val name = android.provider.OpenableColumns.DISPLAY_NAME.let { col ->
-                ctx.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                    val idx = cursor.getColumnIndex(col)
-                    if (idx != -1 && cursor.moveToFirst()) cursor.getString(idx) else null
-                }
-            } ?: uri.lastPathSegment ?: "Custom Video"
-            val customVideo = MediaItem(
-                id = uri.toString().hashCode().toLong(),
-                title = name,
-                artist = "Local File",
-                album = "Custom",
-                albumArtUri = null,
-                contentUri = uri,
-                duration = 0L,
-                mediaType = MediaType.VIDEO,
-                dateAdded = System.currentTimeMillis() / 1000
-            )
-            onOpenVideoPlayer(customVideo)
-        }
-    }
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "Videos",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 24.sp
-                ),
-                color = Color.White
-            )
-            Button(
-                onClick = { videoPickerLauncher.launch(arrayOf("video/*")) },
-                shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AccentRed),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                modifier = Modifier.height(36.dp)
-            ) {
-                Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
-                Spacer(Modifier.width(4.dp))
-                Text("Open Video", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            }
-        }
-        if (videos.isEmpty()) {
-            EmptyStateView("No videos found", Icons.Rounded.VideocamOff)
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(videos) { video ->
-                    VideoCard(item = video, onClick = { onOpenVideoPlayer(video) })
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun FolderCard(folder: MediaFolder, onPlayAll: () -> Unit, isSubfolder: Boolean = folder.name.contains('/')) {
-    val displayName = if (isSubfolder) folder.name.substringAfterLast('/') else folder.name
-    val parentPath = if (isSubfolder) folder.name.substringBeforeLast('/') else null
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (isSubfolder) Modifier.padding(start = 14.dp) else Modifier)
-            .clickable(onClick = onPlayAll),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSubfolder) Color(0xFF0F0F13) else Color(0xFF121217)
-        ),
-        border = BorderStroke(
-            1.dp,
-            if (isSubfolder) Color(0xFF1E1E28) else BorderLight
-        )
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(if (isSubfolder) 38.dp else 44.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (isSubfolder) Color(0xFF1A1A22) else Color(0xFF1C1C24)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (isSubfolder) Icons.Rounded.FolderCopy else Icons.Rounded.Folder,
-                    contentDescription = null,
-                    tint = if (isSubfolder) Color(0xFF71717A) else AccentRed,
-                    modifier = Modifier.size(if (isSubfolder) 18.dp else 22.dp)
-                )
-            }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    text = displayName,
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = if (isSubfolder) FontWeight.Medium else FontWeight.SemiBold,
-                        fontSize = if (isSubfolder) 13.sp else 14.sp
+                    text = "${audioList.size} items",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
                     ),
-                    color = if (isSubfolder) Color(0xFFB0B0B8) else Color.White
+                    color = accentColor
                 )
-                if (parentPath != null) {
-                    Text(
-                        text = "in $parentPath",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = TextMuted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+            }
+        }
+
+        // ── 5. Media Content based on chosen ViewMode & Filter ──
+        if (currentFilter == MediaFilter.VIDEOS) {
+            // Video collection
+            if (videoList.isEmpty()) {
+                item {
+                    EmptyMediaView(message = "No videos found", onReset = { viewModel.setMediaFilter(MediaFilter.ALL) })
+                }
+            } else {
+                items(videoList, key = { it.id }) { videoItem ->
+                    VideoQueueCard(
+                        item = videoItem,
+                        isActive = false,
+                        accentColor = accentColor,
+                        cardBg = cardBg,
+                        onClick = {
+                            viewModel.setSelectedMainVideo(videoItem)
+                            onOpenVideoTab()
+                        }
                     )
                 }
-                Text(
-                    text = "${folder.songCount} tracks · ${folder.path}",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                    color = TextMuted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF1C1C24)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(imageVector = Icons.Rounded.PlayArrow, contentDescription = "Play All", tint = AccentRed, modifier = Modifier.size(16.dp))
+        } else {
+            // Audio collection
+            if (audioList.isEmpty()) {
+                item {
+                    EmptyMediaView(message = "No audio tracks match this filter", onReset = { viewModel.setMediaFilter(MediaFilter.ALL) })
+                }
+            } else {
+                when (viewMode) {
+                    ViewMode.LIST -> {
+                        itemsIndexed(audioList, key = { _, item -> item.id }) { index, item ->
+                            val isPlaying = playerState.currentItem?.id == item.id && playerState.isPlaying
+                            SongRow(
+                                item = item,
+                                index = index,
+                                isPlaying = isPlaying,
+                                onClick = {
+                                    viewModel.playerController.play(item, audioList)
+                                    onOpenPlayer()
+                                },
+                                onFavoriteToggle = { viewModel.toggleFavorite(item.id) },
+                                onOptionsClick = { viewModel.openSongOptions(item) }
+                            )
+                        }
+                    }
+
+                    ViewMode.COMPACT -> {
+                        itemsIndexed(audioList, key = { _, item -> item.id }) { index, item ->
+                            val isPlaying = playerState.currentItem?.id == item.id && playerState.isPlaying
+                            CompactSongRow(
+                                item = item,
+                                index = index,
+                                isPlaying = isPlaying,
+                                accentColor = accentColor,
+                                onClick = {
+                                    viewModel.playerController.play(item, audioList)
+                                    onOpenPlayer()
+                                }
+                            )
+                        }
+                    }
+
+                    ViewMode.GRID -> {
+                        // 2-Column Grid Rows
+                        val chunked = audioList.chunked(2)
+                        items(chunked) { pair ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                for (track in pair) {
+                                    val isPlaying = playerState.currentItem?.id == track.id && playerState.isPlaying
+                                    GridSongCard(
+                                        item = track,
+                                        isPlaying = isPlaying,
+                                        accentColor = accentColor,
+                                        cardBg = cardBg,
+                                        modifier = Modifier.weight(1f),
+                                        onClick = {
+                                            viewModel.playerController.play(track, audioList)
+                                            onOpenPlayer()
+                                        },
+                                        onFavoriteToggle = { viewModel.toggleFavorite(track.id) }
+                                    )
+                                }
+                                if (pair.size == 1) {
+                                    Spacer(Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 }
 
+/**
+ * 2-Column Grid Card for tracks in Grid Mode
+ */
 @Composable
-fun AlbumCard(album: Album, onClick: () -> Unit) {
+fun GridSongCard(
+    item: MediaItem,
+    isPlaying: Boolean,
+    accentColor: Color,
+    cardBg: Color,
+    onClick: () -> Unit,
+    onFavoriteToggle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = ChipBg),
-        border = BorderStroke(1.dp, BorderLight)
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .testTag("track_grid_card_${item.id}"),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        border = BorderStroke(
+            width = if (isPlaying) 1.5.dp else 1.dp,
+            color = if (isPlaying) accentColor else Color(0xFF1E293B)
+        )
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
+            // Album artwork container
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFF141418))
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF0D1320)),
+                contentAlignment = Alignment.Center
             ) {
-                AlbumArtImage(uri = album.artUri, modifier = Modifier.fillMaxSize())
+                AlbumArtImage(uri = item.albumArtUri, modifier = Modifier.fillMaxSize())
+
+                // Favorite Heart Button in top corner
+                IconButton(
+                    onClick = onFavoriteToggle,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(30.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.5f))
+                ) {
+                    Icon(
+                        imageVector = if (item.isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                        contentDescription = "Favorite",
+                        tint = if (item.isFavorite) accentColor else Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                // Duration badge
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(6.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color.Black.copy(alpha = 0.75f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = item.duration.formatDuration(),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                        color = Color.White
+                    )
+                }
             }
-            Spacer(Modifier.height(10.dp))
+
+            Spacer(Modifier.height(8.dp))
+
             Text(
-                text = album.name,
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 13.5.sp),
-                color = Color.White,
+                text = item.title,
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.SemiBold,
+                    fontSize = 13.sp
+                ),
+                color = if (isPlaying) accentColor else Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(Modifier.height(2.dp))
+
             Text(
-                text = "${album.artist}  •  ${album.songCount}",
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                text = item.artist,
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                 color = TextSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -1573,510 +760,91 @@ fun AlbumCard(album: Album, onClick: () -> Unit) {
     }
 }
 
+/**
+ * Compact list row for dense scanning.
+ */
 @Composable
-fun ArtistCard(artist: Artist, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .clip(CircleShape)
-                .background(ChipBg)
-                .border(1.dp, BorderLight, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(imageVector = Icons.Rounded.Person, contentDescription = null, tint = AccentRed, modifier = Modifier.size(26.dp))
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = artist.name, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold), color = Color.White)
-            Text(text = "${artist.albumCount} albums  •  ${artist.songCount} songs", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp), color = TextSecondary)
-        }
-        Icon(imageVector = Icons.Rounded.ChevronRight, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
-    }
-    HorizontalDivider(color = BorderLight, thickness = 1.dp)
-}
-
-@Composable
-fun PlaylistCard(playlist: MediaPlaylist, onPlay: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onPlay),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = ChipBg),
-        border = BorderStroke(1.dp, BorderLight)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFF242429)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(imageVector = Icons.AutoMirrored.Rounded.QueueMusic, contentDescription = null, tint = AccentRed, modifier = Modifier.size(24.dp))
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = playlist.name, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold), color = Color.White)
-                Text(text = "${playlist.songCount} tracks", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp), color = TextSecondary)
-            }
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(CircleShape)
-                    .background(AccentRed),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(imageVector = Icons.Rounded.PlayArrow, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(22.dp))
-            }
-        }
-    }
-}
-
-@Composable
-fun GenreCard(genre: MediaGenre, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = ChipBg),
-        border = BorderStroke(1.dp, BorderLight)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF242429))
-                    .border(1.dp, BorderLight, RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(imageVector = Icons.Rounded.GraphicEq, contentDescription = null, tint = AccentRed, modifier = Modifier.size(18.dp))
-            }
-            Text(text = genre.name, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold), color = Color.White)
-            Text(text = "${genre.songCount} songs", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp), color = TextSecondary)
-        }
-    }
-}
-
-@Composable
-fun VideoCard(item: MediaItem, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = ChipBg),
-        border = BorderStroke(1.dp, BorderLight)
-    ) {
-        Column(modifier = Modifier.padding(8.dp)) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF111114)),
-                contentAlignment = Alignment.Center
-            ) {
-                AlbumArtImage(uri = item.albumArtUri, modifier = Modifier.fillMaxSize())
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(AccentRed.copy(alpha = 0.9f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(imageVector = Icons.Rounded.PlayArrow, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(20.dp))
-                }
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(5.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color.Black.copy(alpha = 0.85f))
-                        .padding(horizontal = 4.dp, vertical = 2.dp)
-                ) {
-                    Text(text = item.duration.formatDuration(), style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = Color.White)
-                }
-            }
-            Spacer(Modifier.height(7.dp))
-            Text(text = item.title, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(text = item.folder, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = TextMuted)
-        }
-    }
-}
-
-@Composable
-fun EmptyStateView(
-    message: String,
-    icon: ImageVector,
-    onRefresh: (() -> Unit)? = null,
-    onManageFolders: (() -> Unit)? = null,
+fun CompactSongRow(
+    item: MediaItem,
+    index: Int,
+    isPlaying: Boolean,
+    accentColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 8.dp)
+            .testTag("compact_row_${item.id}"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = "${index + 1}",
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+            color = if (isPlaying) accentColor else TextMuted,
+            modifier = Modifier.width(22.dp)
+        )
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.Medium,
+                    fontSize = 13.sp
+                ),
+                color = if (isPlaying) accentColor else Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = item.artist,
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                color = TextSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        Text(
+            text = item.duration.formatDuration(),
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+            color = TextMuted
+        )
+    }
+}
+
+@Composable
+fun EmptyMediaView(message: String, onReset: () -> Unit) {
     Box(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 32.dp, vertical = 40.dp),
+            .fillMaxWidth()
+            .padding(40.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            modifier = Modifier.fillMaxWidth()
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(84.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF121217))
-                    .border(1.dp, Color(0xFF26262E), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = AccentRed,
-                    modifier = Modifier.size(38.dp)
-                )
-            }
-
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    color = Color.White,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-                Text(
-                    text = "Ensure music files exist in storage, or select the exact folders to scan.",
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                    color = TextMuted,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    lineHeight = 17.sp
-                )
-            }
-
-            Spacer(Modifier.height(4.dp))
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (onRefresh != null) {
-                    Button(
-                        onClick = onRefresh,
-                        shape = RoundedCornerShape(22.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentRed),
-                        modifier = Modifier.height(40.dp)
-                    ) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
-                        Spacer(Modifier.width(6.dp))
-                        Text("Scan Device", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    }
-                }
-
-                if (onManageFolders != null) {
-                    OutlinedButton(
-                        onClick = onManageFolders,
-                        shape = RoundedCornerShape(22.dp),
-                        border = BorderStroke(1.dp, BorderLight),
-                        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFF141418)),
-                        modifier = Modifier.height(40.dp)
-                    ) {
-                        Icon(Icons.Rounded.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
-                        Spacer(Modifier.width(6.dp))
-                        Text("Music Folders", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun FoldersSelectionDialog(viewModel: MediaViewModel, uiState: MediaUiState) {
-    val context = LocalContext.current
-    var expandedFolders by remember { mutableStateOf(setOf<String>()) }
-    val deviceModel = remember { Build.MODEL.ifBlank { "SM-A576B" } }
-
-    val openDocumentTreeLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            try {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            } catch (_: Exception) {}
-            val folderName = uri.lastPathSegment?.substringAfterLast(':') ?: uri.lastPathSegment ?: "Custom Folder"
-            viewModel.addCustomFolder(folderName, uri.toString())
-        }
-    }
-
-    // Group folders into root directories and nested subfolders
-    val folderGroups = remember(uiState.discoveredFolders) {
-        val groups = LinkedHashMap<String, MutableList<SelectableFolder>>()
-        uiState.discoveredFolders.forEach { folder ->
-            val root = if (folder.name.contains('/')) folder.name.substringBefore('/') else folder.name
-            groups.getOrPut(root) { mutableListOf() }.add(folder)
-        }
-        groups
-    }
-
-    AlertDialog(
-        onDismissRequest = { viewModel.closeFoldersDialog() },
-        shape = RoundedCornerShape(24.dp),
-        containerColor = Color(0xFF19191C),
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 24.dp)
-            .border(1.dp, Color(0xFF2C2C32), RoundedCornerShape(24.dp)),
-        title = {
-            Text(
-                text = "Folders Selection",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                ),
-                color = Color.White,
-                modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
+            Icon(
+                imageVector = Icons.Rounded.MusicOff,
+                contentDescription = null,
+                tint = TextMuted,
+                modifier = Modifier.size(48.dp)
             )
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                color = Color.White
+            )
+            Button(
+                onClick = onReset,
+                shape = RoundedCornerShape(12.dp)
             ) {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 340.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    folderGroups.forEach { (rootName, folderList) ->
-                        val subfolders = folderList.filter { it.name.contains('/') }
-                        val rootFolder = folderList.firstOrNull { !it.name.contains('/') }
-                        val isExpanded = expandedFolders.contains(rootName)
-                        val isRootSelected = if (subfolders.isNotEmpty()) {
-                            subfolders.any { it.isSelected }
-                        } else {
-                            rootFolder?.isSelected == true
-                        }
-
-                        // Root Folder Row (Image 1)
-                        item(key = "root_$rootName") {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .padding(vertical = 3.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(
-                                    modifier = Modifier.weight(1f),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    // Expand / Collapse Arrow
-                                    Box(
-                                        modifier = Modifier
-                                            .size(24.dp)
-                                            .clip(CircleShape)
-                                            .clickable {
-                                                expandedFolders = if (isExpanded) {
-                                                    expandedFolders - rootName
-                                                } else {
-                                                    expandedFolders + rootName
-                                                }
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = if (isExpanded) Icons.Rounded.ArrowDropDown else Icons.Rounded.PlayArrow,
-                                            contentDescription = "Toggle",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-
-                                    // Folder Icon
-                                    Icon(
-                                        imageVector = Icons.Rounded.Folder,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-
-                                    // Folder Name & Device Model Label
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = rootName,
-                                            style = MaterialTheme.typography.bodyMedium.copy(
-                                                fontWeight = FontWeight.SemiBold,
-                                                fontSize = 14.sp
-                                            ),
-                                            color = Color.White,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Text(
-                                            text = deviceModel,
-                                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
-                                            color = Color(0xFFA1A1AA)
-                                        )
-                                    }
-                                }
-
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    // Remove / Exclude X
-                                    IconButton(
-                                        onClick = { viewModel.removeRootFolderFromSelection(rootName) },
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Close,
-                                            contentDescription = "Exclude",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-
-                                    // Checkbox
-                                    Checkbox(
-                                        checked = isRootSelected,
-                                        onCheckedChange = { checked ->
-                                            viewModel.toggleRootFolderSelection(rootName, checked)
-                                        },
-                                        colors = CheckboxDefaults.colors(
-                                            checkedColor = Color.White,
-                                            uncheckedColor = Color(0xFF6B6B76),
-                                            checkmarkColor = Color.Black
-                                        )
-                                    )
-                                }
-                            }
-                        }
-
-                        // Expanded Subfolders (Image 2)
-                        if (isExpanded) {
-                            items(subfolders, key = { "sub_${it.name}" }) { sub ->
-                                val subDisplayName = sub.name.substringAfterLast('/')
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(start = 28.dp, top = 2.dp, bottom = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(
-                                        modifier = Modifier.weight(1f),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.PlayArrow,
-                                            contentDescription = null,
-                                            tint = Color.White,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                        Text(
-                                            text = subDisplayName,
-                                            style = MaterialTheme.typography.bodyMedium.copy(
-                                                fontSize = 13.5.sp,
-                                                fontWeight = FontWeight.Medium
-                                            ),
-                                            color = Color.White,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-
-                                    Checkbox(
-                                        checked = sub.isSelected,
-                                        onCheckedChange = {
-                                            viewModel.toggleFolderSelection(sub.name)
-                                        },
-                                        colors = CheckboxDefaults.colors(
-                                            checkedColor = Color.White,
-                                            uncheckedColor = Color(0xFF6B6B76),
-                                            checkmarkColor = Color.Black
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Button 1: Select Folder or Storage
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF26262A))
-                        .clickable { openDocumentTreeLauncher.launch(null) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Select Folder or Storage",
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        ),
-                        color = Color.White
-                    )
-                }
-
-                // Button 2: Save and Scan
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF26262A))
-                        .clickable { viewModel.saveAndRescanFolders() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Save and Scan",
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        ),
-                        color = Color.White
-                    )
-                }
+                Text("Show All Media")
             }
         }
-    )
+    }
 }
